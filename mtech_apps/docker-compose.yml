@@ -1,0 +1,55 @@
+version: "3"
+volumes:
+  prometheus_data: {}
+
+services:
+  eureka-server:
+    image: service-registry
+    ports:
+      - "8761:8761"
+    networks:
+      - geforce
+
+  user-accounts:
+    image: user-accounts-api
+    networks:
+      - geforce
+    depends_on:
+      - db
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/user_accounts
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=BigMitch@123
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - JAVA_OPTS=
+        -DEUREKA_SERVER=http://eureka-server:8761/eureka
+    ports:
+      - "8074:8074"
+    build:
+      context: ../data
+
+  db:
+    image: postgres
+    networks:
+      - geforce
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=BigMitch@123
+      - POSTGRES_DB=user_accounts
+
+  config-server:
+    image: config-service
+    networks:
+      - geforce
+    ports:
+      - "8085:8085"
+    build:
+      context: ../data
+    environment:
+      - JAVA_OPTS=
+        -DEUREKA_SERVER=http://eureka-server:8761/eureka
+
+
+networks:
+  geforce:
+    external: true
