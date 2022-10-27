@@ -5,6 +5,7 @@ volumes:
 services:
   eureka-server:
     image: service-registry
+    container_name: eureka-server
     ports:
       - "8761:8761"
     networks:
@@ -15,40 +16,73 @@ services:
     networks:
       - geforce
     depends_on:
-      - db
+      - postgres
+      - eureka-server
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/user_accounts
-      - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=BigMitch@123
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - JAVA_OPTS=
-        -DEUREKA_SERVER=http://eureka-server:8761/eureka
+      - SPRING_PROFILES_ACTIVE=docker
+#      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/user_accounts
+#      - SPRING_DATASOURCE_USERNAME=postgres
+#      - SPRING_DATASOURCE_PASSWORD=BigMitch@123
+#      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+#      - JAVA_OPTS=
+#        - DEUREKA_SERVER=http://eureka-server:8761/eureka
     ports:
       - "8074:8074"
     build:
-      context: ../data
+      context: ../prometheus
 
-  db:
+  postgres:
     image: postgres
+    container_name: postgres
     networks:
       - geforce
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=BigMitch@123
       - POSTGRES_DB=user_accounts
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
 
   config-server:
     image: config-service
+    container_name: config-server
     networks:
       - geforce
     ports:
       - "8085:8085"
+    depends_on:
+      - eureka-server
     build:
-      context: ../data
+      context: ../prometheus
     environment:
+      - SPRING_PROFILES_ACTIVE=docker
       - JAVA_OPTS=
-        -DEUREKA_SERVER=http://eureka-server:8761/eureka
+        - DEUREKA_SERVER=http://eureka-server:8761/eureka
 
+  prometheus:
+    image: prom/prometheus
+    networks:
+      - geforce
+    volumes:
+      - './prometheus.yml:/etc/prometheus/config.yml'
+    restart: unless-stopped
+    container_name: prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+    ports:
+      - "9090:9090"
+
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3005:3005"
+    depends_on:
+      - prometheus
+    networks:
+      - geforce
+    restart: unless-stopped
 
 networks:
   geforce:
